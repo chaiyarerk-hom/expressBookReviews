@@ -29,15 +29,24 @@ const authenticatedUser = (username,password)=>{ //returns boolean
 //only registered users can login
 regd_users.post("/login", (req,res) => {
   //Write your code here
-    function createToken(payload) {
-        const token = jwt.sign(payload, secret, { expiresIn: '1h' });
-        return token;
+    const username = req.body.username;
+    const password = req.body.password;
+    
+    if (!username || !password) {
+        return res.status(404).json({ message: "Error logging in" });
     }
 
-    if (authenticatedUser(username,password)) {
+    function createToken(payload) {
+        let accessToken = jwt.sign(payload, "access", { expiresIn: '1h' });
+        return accessToken;
+    }
+
+    if (authenticatedUser(username, password)) {
         const user = users.find(user => user.username === username);
-        const token = createToken({ username: user.username });
-        return res.status(200).json({message: "Successfully registered", token: token});
+        const accessToken = createToken({ username: user.username });
+        //Store access token and username in session
+        req.session.authorization = { accessToken, username };
+        return res.status(200).json({message: "Successfully registered", token: accessToken});
     } else {
         return res.status(401).json({message: "Username or password is invalid"});
     }
@@ -46,7 +55,18 @@ regd_users.post("/login", (req,res) => {
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const isbn = req.params.isbn;
+  const user = req.session.authorization["username"];
+  const review = req.query.review;
+
+  console.log(req.session.authorization);
+
+  if (!books[isbn]) {
+    return res.status(404).json({ message: "Book not found" });
+  }
+
+  books[isbn].reviews[user] = review;
+  return res.status(200).json({message: "Successfully added reviews", reviews: books[isbn].reviews});
 });
 
 module.exports.authenticated = regd_users;
